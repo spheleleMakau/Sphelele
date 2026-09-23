@@ -8,6 +8,16 @@ from django.http import FileResponse, JsonResponse
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+def serve_asset(path_name, content_type):
+    def view(request):
+        asset_path = BASE_DIR / path_name
+        if not asset_path.exists():
+            return JsonResponse({'error': 'Asset not found'}, status=404)
+        return FileResponse(asset_path.open('rb'), content_type=content_type)
+
+    return view
+
+
 def home(request):
     accepts_html = 'text/html' in request.headers.get('Accept', '')
     if accepts_html:
@@ -25,6 +35,8 @@ def home(request):
 
 urlpatterns = [
     path('', home, name='home'),
+    path('styles.css', serve_asset('styles.css', 'text/css; charset=utf-8'), name='styles_css'),
+    path('script.js', serve_asset('script.js', 'application/javascript; charset=utf-8'), name='script_js'),
     path('admin/', admin.site.urls),
     path('api/', include('booking.urls')),
 ]
