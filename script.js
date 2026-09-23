@@ -90,7 +90,14 @@ $$('.date').forEach(date => date.addEventListener('click', () => { $$('.date').f
 $$('.next-step').forEach(button => button.addEventListener('click', () => setStep(Number(button.dataset.next))));
 $$('.back-step').forEach(button => button.addEventListener('click', () => setStep(Number(button.dataset.back))));
 $('#timezoneSelect').addEventListener('change', event => { state.timezone = event.target.value; $('.timezone-note strong').textContent = state.timezone; showToast(`Times shown in ${state.timezone}.`); });
-$('#payButton').addEventListener('click', async () => { const name = $('#clientName').value.trim(); const phone = $('#clientPhone').value.trim(); if (!name || !phone) { showToast('Add your name and WhatsApp number first.'); return; }
+$('#payButton').addEventListener('click', async () => {
+  const name = $('#clientName').value.trim();
+  const phone = $('#clientPhone').value.trim();
+  if (!name || !phone) {
+    showToast('Add your name and WhatsApp number first.');
+    return;
+  }
+
   const bookingDate = parseBookingDate(state.dateLabel);
   const payload = {
     service_id: state.serviceId || state.serviceMap[state.service] || null,
@@ -101,11 +108,14 @@ $('#payButton').addEventListener('click', async () => { const name = $('#clientN
     whatsapp: phone,
     note: $('#clientNote').value.trim(),
     timezone: state.timezone,
-    deposit_paid: true,
-    status: 'CONFIRMED',
+    deposit_paid: false,
+    status: 'PENDING',
   };
 
-  if (!payload.service_id) { showToast('A valid service could not be loaded.'); return; }
+  if (!payload.service_id) {
+    showToast('A valid service could not be loaded.');
+    return;
+  }
 
   try {
     const response = await fetch('/api/appointments/', {
@@ -114,18 +124,15 @@ $('#payButton').addEventListener('click', async () => { const name = $('#clientN
       body: JSON.stringify(payload),
     });
     const data = await response.json();
-    if (!response.ok) { showToast(data.error || 'Booking could not be saved.'); return; }
+    if (!response.ok) {
+      showToast(data.error || 'Booking could not be started.');
+      return;
+    }
 
-    state.paidBooking = { name, phone, service: state.service, date: `${state.dateLabel} at ${state.time}`, time: state.time, timezone: state.timezone, note: $('#clientNote').value.trim(), initials: name.split(' ').map(part => part[0]).join('').slice(0, 2).toUpperCase() };
-    await renderAdmin();
-    $('#confirmedName').textContent = name.split(' ')[0];
-    $('#confirmationDetails').textContent = `${state.service} is confirmed for ${state.dateLabel} at ${state.time} (${state.timezone}). Confirmation and reminders will be sent to your WhatsApp number.`;
-    $('#whatsappConfirm').href = `https://wa.me/${formatWhatsAppNumber(phone)}?text=${encodeURIComponent(`Hi ${name}, your ${state.service} appointment is confirmed for ${state.dateLabel} at ${state.time} (${state.timezone}).`)}`;
-    $$('.booking-step').forEach(item => item.style.display = 'none');
-    $('#confirmation').classList.add('show');
-    showToast('Payment confirmed and booking saved.');
+    const paymentUrl = 'https://www.payfast.co.za/eng/process?cmd=_paynow&receiver=demo@payfast.co.za&amount=' + encodeURIComponent(state.deposit) + '&item_name=' + encodeURIComponent(state.service + ' deposit') + '&item_description=' + encodeURIComponent('Sphelele booking deposit for ' + name);
+    window.location.href = paymentUrl;
   } catch (error) {
-    showToast('Connection error while saving the booking.');
+    showToast('Connection error while starting payment.');
   }
 });
 $('#rescheduleButton').addEventListener('click', () => { $('#confirmation').classList.remove('show'); $$('.booking-step').forEach(item => item.style.display = ''); setStep(2); renderSlots(); showToast('Only available slots are shown.'); });
