@@ -70,7 +70,8 @@
         if (!response.ok) return localAppointments;
         const data = await response.json();
         const appointments = Array.isArray(data.appointments) ? data.appointments : [];
-        return appointments.length ? appointments : localAppointments;
+        const localKeys = new Set(localAppointments.map(item => `${item.date}|${item.start_time}|${item.client}`));
+        return appointments.concat(localAppointments.filter(item => !localKeys.has(`${item.date}|${item.start_time}|${item.client}`)));
       } catch (error) {
         return localAppointments;
       }
