@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 from django.db import models
 
 
@@ -49,6 +51,19 @@ class Appointment(models.Model):
 
     def __str__(self):
         return f'{self.service} - {self.date} {self.start_time}'
+
+    @property
+    def started(self):
+        now = datetime.combine(self.date, datetime.now().time())
+        start_dt = datetime.combine(self.date, self.start_time)
+        return now >= start_dt
+
+    @property
+    def expired(self):
+        end_dt = datetime.combine(self.date, self.end_time)
+        if end_dt < datetime.now():
+            return True
+        return False
 
 
 class BlockedTime(models.Model):

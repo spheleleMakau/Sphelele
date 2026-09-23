@@ -29,7 +29,7 @@ def home(request):
         'service': 'Sphelele API',
         'status': 'ok',
         'frontend_url': settings.FRONTEND_URL or None,
-        'endpoints': ['/api/services/', '/api/availability/', '/api/appointments/', '/admin/'],
+        'endpoints': ['/api/services/', '/api/availability/', '/api/appointments/', '/owner/', '/admin/'],
         'message': 'This is the API service. The public booking page should be served from the static frontend host.'
     })
 
@@ -37,6 +37,7 @@ urlpatterns = [
     path('', home, name='home'),
     path('styles.css', serve_asset('styles.css', 'text/css; charset=utf-8'), name='styles_css'),
     path('script.js', serve_asset('script.js', 'application/javascript; charset=utf-8'), name='script_js'),
+    path('owner/', serve_asset('owner.html', 'text/html; charset=utf-8'), name='owner'),
     path('admin/', admin.site.urls),
     path('api/', include('booking.urls')),
 ]
