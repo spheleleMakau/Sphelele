@@ -5,14 +5,29 @@ services:
     buildCommand: ""
     staticPublishPath: .
     pullRequestPreviewsEnabled: true
+    envVars:
+      - key: NODE_ENV
+        value: production
 
   - type: web
     name: sphelele-api
     runtime: python
-    buildCommand: pip install -r requirements.txt && python manage.py migrate
+    buildCommand: pip install -r requirements.txt && python manage.py migrate && python manage.py collectstatic --noinput
     startCommand: gunicorn beauty_booking.wsgi:application
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: beauty_booking.settings
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: DJANGO_ALLOWED_HOSTS
+        value: sphelele-api.onrender.com,localhost,127.0.0.1
+      - key: DJANGO_SECURE_SSL_REDIRECT
+        value: "True"
+      - key: DJANGO_SECURE_HSTS_SECONDS
+        value: "31536000"
+      - key: DJANGO_CSRF_TRUSTED_ORIGINS
+        value: https://sphelele.onrender.com,https://sphelele-api.onrender.com
       - key: FRONTEND_URL
-        value: https://sphelele.onrender.com
+        value: "https://sphelele.onrender.com"
