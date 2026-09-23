@@ -90,8 +90,10 @@ function showConfirmation(booking) {
   if (!booking || !booking.name) return;
   state.paidBooking = booking;
   $('#confirmedName').textContent = booking.name.split(' ')[0];
-  $('#confirmationDetails').textContent = `${booking.service} is confirmed for ${booking.dateLabel} at ${booking.timeLabel} (${booking.timezone}). Your test payment was successful.`;
-  $('#whatsappConfirm').href = `https://wa.me/${formatWhatsAppNumber(booking.whatsapp)}?text=${encodeURIComponent(`Hi ${booking.name}, your ${booking.service} appointment is confirmed for ${booking.dateLabel} at ${booking.timeLabel}.`)}`;
+  const confirmationMessage = `Hi ${booking.name}, your ${booking.service} appointment is confirmed for ${booking.dateLabel} at ${booking.timeLabel}.`;
+  $('#confirmationDetails').textContent = `${booking.service} is confirmed for ${booking.dateLabel} at ${booking.timeLabel} (${booking.timezone}). Your dummy payment was successful. Send the confirmation by WhatsApp or SMS below.`;
+  $('#whatsappConfirm').href = `https://wa.me/${formatWhatsAppNumber(booking.whatsapp)}?text=${encodeURIComponent(confirmationMessage)}`;
+  $('#smsConfirm').href = `sms:${booking.whatsapp}?body=${encodeURIComponent(confirmationMessage)}`;
   $$('.booking-step').forEach(item => item.style.display = 'none');
   $('#confirmation').classList.add('show');
 }
@@ -131,6 +133,7 @@ $('#payButton').addEventListener('click', async () => {
   }
 
   const testPaymentUrl = `payment.html?amount=${encodeURIComponent(state.deposit)}&service=${encodeURIComponent(state.service)}&name=${encodeURIComponent(name)}`;
+  const runningStaticTest = window.location.port === '5500' || window.location.protocol === 'file:';
   localStorage.setItem('sphelelePendingBooking', JSON.stringify({
     ...payload,
     service: state.service,
@@ -140,20 +143,27 @@ $('#payButton').addEventListener('click', async () => {
     timeLabel: state.time,
   }));
 
+  if (runningStaticTest) {
+    window.location.href = testPaymentUrl;
+    return;
+  }
+
   try {
     const response = await fetch('/api/appointments/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    const data = await response.json();
-    if (!response.ok && response.status !== 202) {
+    if (response.ok || response.status === 202) {
+      const data = await response.json();
+      const pendingBooking = JSON.parse(localStorage.getItem('sphelelePendingBooking') || '{}');
+      pendingBooking.appointment_id = data.appointment_id || null;
+      localStorage.setItem('sphelelePendingBooking', JSON.stringify(pendingBooking));
+    } else if (!runningStaticTest) {
+      const data = await response.json().catch(() => ({}));
       showToast(data.error || 'Booking could not be started.');
       return;
     }
-    const pendingBooking = JSON.parse(localStorage.getItem('sphelelePendingBooking') || '{}');
-    pendingBooking.appointment_id = data.appointment_id || null;
-    localStorage.setItem('sphelelePendingBooking', JSON.stringify(pendingBooking));
     window.location.href = testPaymentUrl;
   } catch (error) {
     // The static test server has no API, so continue into the local payment simulator.
