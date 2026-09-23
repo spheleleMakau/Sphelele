@@ -23,6 +23,35 @@ npx serve .
 
 You can also open `index.html` directly, but a local server is recommended for a realistic client demo.
 
+## Run the Django API
+
+The backend scaffold is included for real services, availability, appointments, clients, and blocked time:
+
+```bash
+python -m pip install -r requirements.txt
+python manage.py migrate
+python manage.py runserver 8000
+```
+
+API endpoints:
+
+- `GET /api/services/`
+- `GET /api/availability/?date=2026-09-25&service=1`
+- `GET /api/appointments/` for paid bookings
+- `POST /api/appointments/` to begin a booking and return the deposit required
+- `/admin/` for Django admin management
+
+For Render's `sphelele-api` service, set these environment variables:
+
+```text
+DJANGO_SECRET_KEY=<generate-a-long-random-secret>
+DJANGO_DEBUG=False
+DJANGO_ALLOWED_HOSTS=sphelele-api.onrender.com
+DJANGO_SECURE_SSL_REDIRECT=True
+DJANGO_SECURE_HSTS_SECONDS=31536000
+DJANGO_CSRF_TRUSTED_ORIGINS=https://sphelele.onrender.com
+```
+
 ## Included in this demo
 
 - Short client flow: service, date/time, optional note, and contact details
@@ -48,14 +77,13 @@ After deployment, Render provides a public `onrender.com` URL. Add the custom do
 
 ## Production handoff
 
-This is a front-end prototype. It is ready to use as a clickable client demo, but a static website cannot securely confirm payments or send automatic WhatsApp messages by itself. WhatsApp is the only notification channel in the client flow. To launch it for a client:
+The frontend is ready to use as a clickable client demo. The Django backend now provides the starting API and database schema, but payment confirmation and automatic WhatsApp messages still need provider integrations. WhatsApp is the only notification channel in the client flow. To launch it for a client:
 
 1. Replace the sample WhatsApp number in `index.html`.
-2. Move services, working hours, blocked times, clients, and appointments into Django models.
-3. Use a transaction plus database constraint to prevent overlapping appointments.
-4. Replace the payment confirmation demo in `script.js` with PayFast, Peach Payments, Yoco, or another South African provider. Never store card details in this app.
-5. Add a scheduled Django task/Celery job for 24-hour and 2-hour reminders through the WhatsApp Business Cloud API or a provider such as Twilio. The provider's access token must stay server-side.
-6. Add owner authentication and permissions around the dashboard.
-7. Deploy the Django API separately, update the front end API URL, then connect a custom domain.
+2. Use a transaction plus a database exclusion/locking strategy to prevent overlapping appointments.
+3. Replace the payment confirmation demo in `script.js` with PayFast, Peach Payments, Yoco, or another South African provider. Never store card details in this app.
+4. Add a scheduled Django task/Celery job for 24-hour and 2-hour reminders through the WhatsApp Business Cloud API or a provider such as Twilio. The provider's access token must stay server-side.
+5. Add owner authentication and permissions around the dashboard.
+6. Deploy the Django API separately, update the front end API URL, then connect a custom domain.
 
 The current interface is intentionally demo-ready without a build dependency, so it can be shown to the client before backend work begins.

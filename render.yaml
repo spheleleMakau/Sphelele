@@ -5,3 +5,12 @@ services:
     buildCommand: ""
     staticPublishPath: .
     pullRequestPreviewsEnabled: true
+
+  - type: web
+    name: sphelele-api
+    runtime: python
+    buildCommand: pip install -r requirements.txt && python manage.py migrate
+    startCommand: gunicorn beauty_booking.wsgi:application
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: beauty_booking.settings
