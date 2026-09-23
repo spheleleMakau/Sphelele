@@ -54,10 +54,26 @@
 
   <script>
     async function fetchAppointments() {
-      const response = await fetch('/api/appointments/');
-      if (!response.ok) return [];
-      const data = await response.json();
-      return Array.isArray(data.appointments) ? data.appointments : [];
+      const localBooking = JSON.parse(localStorage.getItem('spheleleConfirmedBooking') || 'null');
+      const localAppointments = localBooking && localBooking.name ? [{
+        client: localBooking.name,
+        whatsapp: localBooking.whatsapp,
+        service: localBooking.service,
+        date: localBooking.date,
+        start_time: localBooking.timeLabel,
+        status: 'CONFIRMED',
+        deposit_paid: true,
+      }] : [];
+
+      try {
+        const response = await fetch('/api/appointments/');
+        if (!response.ok) return localAppointments;
+        const data = await response.json();
+        const appointments = Array.isArray(data.appointments) ? data.appointments : [];
+        return appointments.length ? appointments : localAppointments;
+      } catch (error) {
+        return localAppointments;
+      }
     }
 
     function formatDateKey(dateText) {

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sphelele | Secure test payment</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="payment-page">
+  <main class="payment-card">
+    <p class="eyebrow">Sphelele checkout</p>
+    <h1>Pay your deposit</h1>
+    <p class="payment-description">This is a local test checkout. No real money will be charged.</p>
+    <div class="payment-summary"><span id="paymentService">Appointment deposit</span><strong id="paymentAmount">R0</strong></div>
+    <button class="button button-coral" id="completePayment">Complete test payment <span>↗</span></button>
+    <a class="payment-cancel" href="index.html">Back to booking</a>
+    <p class="secure-note">Production payments will use the connected PayFast or PayShap merchant account.</p>
+  </main>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    document.querySelector('#paymentService').textContent = `${params.get('service') || 'Appointment'} deposit`;
+    document.querySelector('#paymentAmount').textContent = `R${params.get('amount') || '0'}`;
+    document.querySelector('#completePayment').addEventListener('click', async () => {
+      const booking = JSON.parse(localStorage.getItem('sphelelePendingBooking') || '{}');
+      if (!booking.name) {
+        alert('Start from the booking page so the customer details can be included.');
+        window.location.href = 'index.html';
+        return;
+      }
+      if (booking.appointment_id) {
+        try {
+          await fetch(`/api/appointments/${booking.appointment_id}/dummy-payment/`, { method: 'POST' });
+        } catch (error) {
+          // The static test server has no API; local confirmation still supports testing.
+        }
+      }
+      booking.deposit_paid = true;
+      booking.status = 'CONFIRMED';
+      booking.payment_reference = `TEST-${Date.now()}`;
+      localStorage.setItem('spheleleConfirmedBooking', JSON.stringify(booking));
+      localStorage.removeItem('sphelelePendingBooking');
+      window.location.href = `index.html?payment=success&name=${encodeURIComponent(booking.name || '')}`;
+    });
+  </script>
+</body>
+</html>

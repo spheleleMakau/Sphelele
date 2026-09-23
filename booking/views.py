@@ -3,6 +3,7 @@ import json
 
 from django.db import transaction
 from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
@@ -104,4 +105,20 @@ def appointments(request):
         'status': 'payment_required',
         'deposit_amount': service.deposit_amount,
         'client_id': client.id,
+        'appointment_id': appointment.id,
     }, status=202)
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def dummy_payment(request, appointment_id):
+    try:
+        appointment = Appointment.objects.select_related('service', 'client').get(id=appointment_id)
+    except Appointment.DoesNotExist:
+        return JsonResponse({'error': 'Appointment not found'}, status=404)
+
+    appointment.deposit_paid = True
+    appointment.status = Appointment.Status.CONFIRMED
+    appointment.payment_reference = f'TEST-{appointment.id}'
+    appointment.save(update_fields=['deposit_paid', 'status', 'payment_reference'])
+    return JsonResponse({'status': 'confirmed', 'appointment_id': appointment.id})

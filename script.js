@@ -49,7 +49,7 @@ async function fetchBookings() {
 async function loadServices() {
   try {
     const response = await fetch('/api/services/');
-    if (!response.ok) return;
+    if (!response.ok) throw new Error('Services API unavailable');
     const payload = await response.json();
     state.serviceMap = {};
     (payload.services || []).forEach(service => { state.serviceMap[service.name] = service.id; });
@@ -65,6 +65,7 @@ async function loadServices() {
     }
   } catch (error) {
     state.serviceMap = { ...services };
+    state.serviceId = null;
   }
 }
 
@@ -84,6 +85,15 @@ async function renderAdmin() {
     const initials = (booking.client || 'A').split(' ').map(part => part[0]).join('').slice(0, 2).toUpperCase();
     return `<article class="appointment"><time>${booking.start_time || 'Booked'}<small>Confirmed</small></time><div class="appointment-person"><div class="avatar coral">${initials}</div><div><h4>${booking.client}</h4><p>${booking.service} · ${booking.date}</p><span class="wa">${booking.whatsapp || 'No note added'}</span></div></div><span class="paid">● Deposit paid</span></article>`;
   }).join('');
+}
+function showConfirmation(booking) {
+  if (!booking || !booking.name) return;
+  state.paidBooking = booking;
+  $('#confirmedName').textContent = booking.name.split(' ')[0];
+  $('#confirmationDetails').textContent = `${booking.service} is confirmed for ${booking.dateLabel} at ${booking.timeLabel} (${booking.timezone}). Your test payment was successful.`;
+  $('#whatsappConfirm').href = `https://wa.me/${formatWhatsAppNumber(booking.whatsapp)}?text=${encodeURIComponent(`Hi ${booking.name}, your ${booking.service} appointment is confirmed for ${booking.dateLabel} at ${booking.timeLabel}.`)}`;
+  $$('.booking-step').forEach(item => item.style.display = 'none');
+  $('#confirmation').classList.add('show');
 }
 $$('.choice').forEach(choice => choice.addEventListener('click', () => { $$('.choice').forEach(item => item.classList.remove('selected')); choice.classList.add('selected'); state.service = choice.dataset.service; state.price = Number(choice.dataset.price); state.deposit = Number(choice.dataset.deposit); state.duration = services[state.service]; state.serviceId = state.serviceMap[state.service] || null; updateSummary(); }));
 $$('.date').forEach(date => date.addEventListener('click', () => { $$('.date').forEach(item => item.classList.remove('selected')); date.classList.add('selected'); state.date = date.dataset.date; state.dateLabel = date.dataset.label; state.time = '09:00'; renderSlots(); }));
@@ -113,9 +123,22 @@ $('#payButton').addEventListener('click', async () => {
   };
 
   if (!payload.service_id) {
-    showToast('A valid service could not be loaded.');
-    return;
+    const runningStaticTest = window.location.port === '5500' || window.location.protocol === 'file:';
+    if (!runningStaticTest) {
+      showToast('A valid service could not be loaded.');
+      return;
+    }
   }
+
+  const testPaymentUrl = `payment.html?amount=${encodeURIComponent(state.deposit)}&service=${encodeURIComponent(state.service)}&name=${encodeURIComponent(name)}`;
+  localStorage.setItem('sphelelePendingBooking', JSON.stringify({
+    ...payload,
+    service: state.service,
+    price: state.price,
+    deposit: state.deposit,
+    dateLabel: state.dateLabel,
+    timeLabel: state.time,
+  }));
 
   try {
     const response = await fetch('/api/appointments/', {
@@ -124,15 +147,17 @@ $('#payButton').addEventListener('click', async () => {
       body: JSON.stringify(payload),
     });
     const data = await response.json();
-    if (!response.ok) {
+    if (!response.ok && response.status !== 202) {
       showToast(data.error || 'Booking could not be started.');
       return;
     }
-
-    const paymentUrl = 'https://www.payfast.co.za/eng/process?cmd=_paynow&receiver=demo@payfast.co.za&amount=' + encodeURIComponent(state.deposit) + '&item_name=' + encodeURIComponent(state.service + ' deposit') + '&item_description=' + encodeURIComponent('Sphelele booking deposit for ' + name);
-    window.location.href = paymentUrl;
+    const pendingBooking = JSON.parse(localStorage.getItem('sphelelePendingBooking') || '{}');
+    pendingBooking.appointment_id = data.appointment_id || null;
+    localStorage.setItem('sphelelePendingBooking', JSON.stringify(pendingBooking));
+    window.location.href = testPaymentUrl;
   } catch (error) {
-    showToast('Connection error while starting payment.');
+    // The static test server has no API, so continue into the local payment simulator.
+    window.location.href = testPaymentUrl;
   }
 });
 $('#rescheduleButton').addEventListener('click', () => { $('#confirmation').classList.remove('show'); $$('.booking-step').forEach(item => item.style.display = ''); setStep(2); renderSlots(); showToast('Only available slots are shown.'); });
@@ -148,3 +173,5 @@ $('#cancelButton').addEventListener('click', () => {
 });
 $('#blockTime').addEventListener('click', () => $('#blockModal').classList.add('show')); $('.close-modal').addEventListener('click', () => $('#blockModal').classList.remove('show')); $('#saveBlock').addEventListener('click', () => { $('#blockModal').classList.remove('show'); showToast('Time blocked.'); }); $('#blockModal').addEventListener('click', event => { if (event.target.id === 'blockModal') $('#blockModal').classList.remove('show'); });
 updateSummary(); renderSlots(); loadServices().then(() => renderAdmin());
+const confirmedBooking = JSON.parse(localStorage.getItem('spheleleConfirmedBooking') || 'null');
+if (new URLSearchParams(window.location.search).get('payment') === 'success') showConfirmation(confirmedBooking);

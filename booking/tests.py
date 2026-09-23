@@ -45,3 +45,29 @@ class AppointmentAPITest(TestCase):
         data = json.loads(list_response.content)
         self.assertEqual(len(data['appointments']), 1)
         self.assertEqual(data['appointments'][0]['client'], 'Alicia Smith')
+
+    def test_dummy_payment_confirms_pending_booking(self):
+        payload = {
+            'service_id': self.service.id,
+            'date': '2026-09-26',
+            'start_time': '10:00',
+            'name': 'Test Client',
+            'whatsapp': '0720000000',
+            'deposit_paid': False,
+            'status': 'PENDING',
+        }
+
+        response = self.client.post(
+            '/api/appointments/',
+            data=json.dumps(payload),
+            content_type='application/json',
+        )
+        appointment = Appointment.objects.get()
+        self.assertEqual(response.status_code, 202)
+
+        payment_response = self.client.post(f'/api/appointments/{appointment.id}/dummy-payment/')
+
+        self.assertEqual(payment_response.status_code, 200)
+        appointment.refresh_from_db()
+        self.assertTrue(appointment.deposit_paid)
+        self.assertEqual(appointment.status, Appointment.Status.CONFIRMED)
