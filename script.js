@@ -1,6 +1,6 @@
-const state = { service: 'HD Lace Installation', price: 500, deposit: 150, duration: 150, date: '25 September', dateLabel: 'Friday, 25 September 2026', time: '09:00', timezone: 'Africa/Johannesburg (SAST)', paidBooking: null, serviceId: null, serviceMap: {} };
+const state = { service: 'Frontal Installation', price: 450, deposit: 150, duration: 120, date: '25 September', dateLabel: 'Friday, 25 September 2026', time: '09:00', timezone: 'Africa/Johannesburg (SAST)', paidBooking: null, serviceId: null, serviceMap: {} };
 const availability = { '25 September': ['11:00'], '26 September': ['10:00', '15:00'], '28 September': ['12:00'], '29 September': [] };
-const services = { 'HD Lace Installation': 150, 'Frontal Installation': 120, 'Classic Lashes': 90, 'Hybrid Lashes': 105 };
+const services = { 'Frontal Installation': 120, 'Classic Lashes': 90, 'Hybrid Lashes': 105 };
 const $ = selector => document.querySelector(selector);
 const $$ = selector => document.querySelectorAll(selector);
 function formatDuration(minutes) { return `${Math.floor(minutes / 60)} hr${minutes >= 120 ? 's' : ''}${minutes % 60 ? ` ${minutes % 60} min` : ''}`; }
@@ -35,6 +35,13 @@ function resetBookingFlow() {
   renderSlots();
 }
 function renderSlots() { const slots = $('#timeSlots'); const blocked = availability[state.date] || []; const opening = 8 * 60; const closing = 19 * 60; const step = 60; const lunchStart = 13 * 60; if (!document.querySelector('.hours-note')) { const note = document.createElement('div'); note.className = 'hours-note'; note.innerHTML = 'Open every day · <strong>08:00–19:00</strong>'; slots.parentElement.insertBefore(note, document.querySelector('.timezone-note')); } slots.innerHTML = ''; $('#selectedDateLabel').textContent = `${state.dateLabel} · ${formatDuration(state.duration)}`; $('#slotHint').textContent = `${formatDuration(state.duration)} appointment`; for (let start = opening; start + state.duration <= closing; start += step) { const time = minutesToTime(start); const overlapsLunch = start < lunchStart + 60 && start + state.duration > lunchStart; const isBooked = blocked.includes(time); const button = document.createElement('button'); button.className = `time${isBooked ? ' booked' : ''}${overlapsLunch ? ' lunch' : ''}${time === state.time && !isBooked && !overlapsLunch ? ' selected' : ''}`; button.disabled = isBooked || overlapsLunch; button.innerHTML = `${time}${isBooked ? '<small>Booked</small>' : overlapsLunch ? '<small>Lunch</small>' : ''}`; if (!button.disabled) button.addEventListener('click', () => { $$('.time').forEach(item => item.classList.remove('selected')); button.classList.add('selected'); state.time = time; updateSummary(); }); slots.appendChild(button); } if (!slots.querySelector('.time:not(:disabled)')) slots.innerHTML = '<p class="no-slots">No times fit this service on this date. Please choose another date.</p>'; }
+const renderSlotsWithDuration = renderSlots;
+renderSlots = () => {
+  renderSlotsWithDuration();
+  $('#selectedDateLabel').textContent = state.dateLabel;
+  $('#slotHint').textContent = 'Select an available time';
+  document.querySelector('.timezone-note')?.remove();
+};
 async function fetchBookings() {
   try {
     const response = await fetch('/api/appointments/');
@@ -91,12 +98,17 @@ function showConfirmation(booking) {
   state.paidBooking = booking;
   $('#confirmedName').textContent = booking.name.split(' ')[0];
   const confirmationMessage = `Hi ${booking.name}, your ${booking.service} appointment is confirmed for ${booking.dateLabel} at ${booking.timeLabel}.`;
-  $('#confirmationDetails').textContent = `${booking.service} is confirmed for ${booking.dateLabel} at ${booking.timeLabel} (${booking.timezone}). Your dummy payment was successful. Send the confirmation by WhatsApp or SMS below.`;
+  $('#confirmationDetails').textContent = `${booking.service} is confirmed for ${booking.dateLabel} at ${booking.timeLabel}. Your dummy payment was successful. Send the confirmation by WhatsApp or SMS below.`;
   $('#whatsappConfirm').href = `https://wa.me/${formatWhatsAppNumber(booking.whatsapp)}?text=${encodeURIComponent(confirmationMessage)}`;
   $('#smsConfirm').href = `sms:${booking.whatsapp}?body=${encodeURIComponent(confirmationMessage)}`;
   $$('.booking-step').forEach(item => item.style.display = 'none');
   $('#confirmation').classList.add('show');
 }
+const removedServiceChoice = document.querySelector('.choice[data-service="HD Lace Installation"]');
+if (removedServiceChoice) removedServiceChoice.remove();
+$$('.choice small').forEach(item => { item.textContent = item.textContent.replace(/^.*?·\s*/, ''); });
+const defaultServiceChoice = document.querySelector('.choice[data-service="Frontal Installation"]');
+if (defaultServiceChoice) defaultServiceChoice.classList.add('selected');
 $$('.choice').forEach(choice => choice.addEventListener('click', () => { $$('.choice').forEach(item => item.classList.remove('selected')); choice.classList.add('selected'); state.service = choice.dataset.service; state.price = Number(choice.dataset.price); state.deposit = Number(choice.dataset.deposit); state.duration = services[state.service]; state.serviceId = state.serviceMap[state.service] || null; updateSummary(); }));
 $$('.date').forEach(date => date.addEventListener('click', () => { $$('.date').forEach(item => item.classList.remove('selected')); date.classList.add('selected'); state.date = date.dataset.date; state.dateLabel = date.dataset.label; state.time = '09:00'; renderSlots(); }));
 $$('.next-step').forEach(button => button.addEventListener('click', () => setStep(Number(button.dataset.next))));
@@ -183,5 +195,9 @@ $('#cancelButton').addEventListener('click', () => {
 });
 $('#blockTime').addEventListener('click', () => $('#blockModal').classList.add('show')); $('.close-modal').addEventListener('click', () => $('#blockModal').classList.remove('show')); $('#saveBlock').addEventListener('click', () => { $('#blockModal').classList.remove('show'); showToast('Time blocked.'); }); $('#blockModal').addEventListener('click', event => { if (event.target.id === 'blockModal') $('#blockModal').classList.remove('show'); });
 updateSummary(); renderSlots(); loadServices().then(() => renderAdmin());
+['sphelelePendingBooking', 'spheleleConfirmedBooking'].forEach(key => {
+  const booking = JSON.parse(localStorage.getItem(key) || 'null');
+  if (booking && (booking.service === 'HD Lace Installation' || booking.duration === 150)) localStorage.removeItem(key);
+});
 const confirmedBooking = JSON.parse(localStorage.getItem('spheleleConfirmedBooking') || 'null');
 if (new URLSearchParams(window.location.search).get('payment') === 'success') showConfirmation(confirmedBooking);
